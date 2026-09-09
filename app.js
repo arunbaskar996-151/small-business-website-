@@ -32,13 +32,6 @@
       return;
     }
 
-    if (data.length === 0){
-      // First login for this user — seed their account with sample data
-      // so the dashboard isn't empty. This is a one-time convenience seed.
-      await seedSampleDataForUser();
-      return loadTransactions();
-    }
-
     transactions = data.map(rowToTx);
   }
 
@@ -53,21 +46,6 @@
       description: row.description,
       amount: Number(row.amount)
     };
-  }
-
-  async function seedSampleDataForUser(){
-    const rows = SAMPLE_TRANSACTIONS.map(t => ({
-      user_id: currentUser.id,
-      date: t.date,
-      month: t.month,
-      month_index: t.monthIndex,
-      type: t.type,
-      category: t.category,
-      description: t.description,
-      amount: t.amount
-    }));
-    const { error } = await supabaseClient.from('transactions').insert(rows);
-    if (error) console.error("Failed to seed sample data:", error);
   }
 
   // ================= NAVIGATION =================
@@ -269,9 +247,13 @@
     const t = totals();
     const margin = t.income > 0 ? (t.profit/t.income)*100 : 0;
 
+    const bizName = escapeHtml(currentUser && currentUser.user_metadata && currentUser.user_metadata.business_name
+      ? currentUser.user_metadata.business_name
+      : "My Business");
+
     let html = `
       <div class="statement-header">
-        <span class="statement-title">Baskar Traders — Profit &amp; Loss Statement</span>
+        <span class="statement-title">${bizName} — Profit &amp; Loss Statement</span>
         <span class="statement-period">Jan – Dec 2025</span>
       </div>
       <div class="statement-body">
@@ -392,6 +374,16 @@
 
   // ================= INSIGHTS =================
   function renderInsights(){
+    if (transactions.length === 0){
+      $("insightsList").innerHTML = `
+        <div class="insight-card neutral">
+          <div class="insight-icon">i</div>
+          <div class="insight-text"><b>No data yet</b>Add some income and expense transactions to see insights and recommendations here.</div>
+        </div>
+      `;
+      return;
+    }
+
     const monthly = monthlyTotals();
     const t = totals();
     const catMap = expenseByCategory();
